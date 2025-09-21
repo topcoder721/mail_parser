@@ -1,0 +1,8 @@
+env/
+__pycache__/
+testfile/
+.env
+db-record.txt
+test/
+*.pl
+advisory.py

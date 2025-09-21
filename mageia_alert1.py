@@ -1,21 +1,3 @@
-#!/usr/bin/env python3
-
-"""
-Parses Mageia Security Alerts for automatic
-insertion into linuxsecurity.com
-
-Converted from Perl to Python
-Dave Wreski <dwreski@guardiandigital.com>
-08/31/2018
-
-Issues fixed in Python conversion:
-- Better handling of long subject lines with multiple packages
-- Improved regex patterns for subject parsing
-- More robust email parsing
-- Better error handling and logging
-- Fixed issue where MGAA- (bug fix) advisories were not being processed
-  (they should be ignored as they're not security advisories)
-"""
 
 import sys
 import re
@@ -42,6 +24,23 @@ def insert_advisory(title, short_desc, advisory_text, os_name, adv_date):
         send_failed(f"Database insert failed for: {title}", os_name)
 
 def main():
+    # Check for help
+    if '--help' in sys.argv or '-h' in sys.argv:
+        print("Usage: python mageia_alert1.py [--test] [email_file]")
+        print("  --test: Run in test mode (don't insert into database)")
+        print("  email_file: Read email from file instead of stdin")
+        print("")
+        print("Examples:")
+        print("  python mageia_alert1.py < email.eml")
+        print("  python mageia_alert1.py --test testfile/mageia-works.eml")
+        print("  cat email.eml | python mageia_alert1.py --test")
+        sys.exit(0)
+    
+    # Check for test mode
+    test_mode = '--test' in sys.argv
+    if test_mode:
+        sys.argv.remove('--test')
+    
     # Initialize variables
     short_desc = ""
     advisory = ""
@@ -58,15 +57,30 @@ def main():
     start_short = False
     pkgname = ""
     
-    # Read email from stdin
-    try:
-        buf = sys.stdin.read()
-        if not buf.strip():
-            print("No input received")
+    # Read email from file or stdin
+    if len(sys.argv) > 1:
+        # Read from file specified as command line argument
+        email_file = sys.argv[1]
+        try:
+            with open(email_file, 'r', encoding='utf-8') as f:
+                buf = f.read()
+            print(f"Reading email from file: {email_file}")
+        except FileNotFoundError:
+            print(f"Error: File '{email_file}' not found")
             sys.exit(1)
-    except Exception as e:
-        print(f"Error reading input: {e}")
-        sys.exit(1)
+        except Exception as e:
+            print(f"Error reading file '{email_file}': {e}")
+            sys.exit(1)
+    else:
+        # Read from stdin (original behavior)
+        try:
+            buf = sys.stdin.read()
+            if not buf.strip():
+                print("No input received")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error reading input: {e}")
+            sys.exit(1)
     
     mail_data = buf.split('\n')
     
@@ -82,14 +96,6 @@ def main():
     
     # Remove newlines from date
     adv_date = adv_date.replace('\n', '').replace('\r', '')
-    
-    # Check if this is a security advisory (MGASA-) vs bug fix (MGAA-)
-    if 'MGASA-' not in subject:
-        if 'MGAA-' in subject:
-            print(f"Bug fix advisory (MGAA-), not security advisory: {subject}")
-        else:
-            print(f"Not a Mageia advisory: {subject}")
-        sys.exit(0)
     
     # Clean subject - remove various line break characters
     subject = re.sub(r'[\r\n\x0b\x0c]', '', subject)
@@ -119,6 +125,7 @@ def main():
         r'MGASA-(\d+)-(\d+)\s*-\s*(.*?)\s+(.*?)\s+fixes?\s+security\s+vulnerabilities?',
         # Generic fallback - just extract the advisory number
         r'MGASA-(\d+)-(\d+)',
+        r'MGAA-(\d+)-(\d+)',
     ]
     
     for i, pattern in enumerate(patterns):
@@ -215,7 +222,25 @@ def main():
     print(f"shortdesc: |{short_desc}|")
     print(f"sub: |{sub}|")
     
-    # Insert advisory into database
+    # In test mode, show parsed content without database insertion
+    if test_mode:
+        print("\n" + "="*60)
+        print("PARSED EMAIL CONTENT (TEST MODE)")
+        print("="*60)
+        print(f"Original Subject: {subject}")
+        print(f"Formatted Title: {sub}")
+        print(f"sent from: {from_addr}")
+        print(f"Package Name: {pkgname}")
+        print(f"Date: {adv_date}")
+        print(f"Short Description ({len(short_desc)} chars): {short_desc}")
+        print("\nFull Advisory Content:")
+        print("-" * 40)
+        print(advisory[:500] + "..." if len(advisory) > 500 else advisory)
+        print("="*60)
+        print("Test mode - no database insertion attempted")
+        return
+    
+    # Insert advisory into database (production mode)
     insert_advisory(sub, short_desc, advisory, "mageia", adv_date)
 
 if __name__ == "__main__":

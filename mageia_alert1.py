@@ -97,6 +97,11 @@ def main():
     # Remove newlines from date
     adv_date = adv_date.replace('\n', '').replace('\r', '')
     
+    # Check if this is a Mageia advisory (MGASA- or MGAA-)
+    if 'MGASA-' not in subject and 'MGAA-' not in subject:
+        print(f"Not a Mageia advisory: {subject}")
+        sys.exit(0)
+    
     # Clean subject - remove various line break characters
     subject = re.sub(r'[\r\n\x0b\x0c]', '', subject)
     
@@ -117,6 +122,8 @@ def main():
         r'MGASA-(\d+)-(\d+):\s*Updated\s+(.*?)\s+packages?\s+fix\s+security\s+vulnerability',
         # MGASA-2023-0355: New chromium-browser-stable 120.0.6099.129 fixes bugs and vulnerabilities
         r'MGASA-(\d+)-(\d+):\s*New\s+(.*?)\s+(.*?)\s+fixes\s+bugs\s+and',
+        # MGAA-2025-0082: Updated nvidia-current packages fix bugs
+        r'MGAA-(\d+)-(\d+):\s*Updated\s+(.*?)\s+packages?\s+fix\s+bugs?',
         # MGASA-2019-0151 - Updated package packages fix security vulnerabilities
         r'MGASA-(\d+)-(\d+)\s*-\s*Updated\s+(.*?)\s+packages?\s+fix\s+security\s+vulnerabilities?',
         # MGASA-2019-0151 - Updated package package fix security vulnerabilities
@@ -178,32 +185,30 @@ def main():
         sys.exit(0)
     
     # Process email body
+    in_headers = True
+    found_body_start = False
+    
     for line in mail_data:
         line = line.rstrip('\n\r')
         
-        # Find start of body (empty line)
-        if line == '' and not inadvis:
-            inadvis = True
+        # Skip headers until we find the first empty line
+        if in_headers:
+            if line == '':
+                in_headers = False
+                found_body_start = True
             continue
         
-        # Look for Description section
-        if line.startswith('Description:'):
-            start_short = True
-            continue
-        
-        # Collect short description (first 5 lines after Description:)
-        if linecount < 5 and start_short:
-            if line.strip():  # Skip empty lines
-                short_desc += line + " "
-                linecount += 1
-        
-        # Look for advisory number to start collecting full advisory
-        if re.match(r'^MGASA-', line):
-            inadvis = True
-        
-        # Collect full advisory text
-        if inadvis:
-            advisory += line + "\n"
+        # After headers, look for the advisory content
+        if found_body_start:
+            # Look for the advisory line (first non-empty line that starts with MGA)
+            if line.strip() and (re.match(r'^MGASA-', line) or re.match(r'^MGAA-', line)):
+                if not short_desc:
+                    short_desc = line.strip()
+                inadvis = True
+            
+            # Collect full advisory text once we've found the start
+            if inadvis:
+                advisory += line + "\n"
     
     # Clean up short description
     short_desc = short_desc.strip()

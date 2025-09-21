@@ -187,6 +187,8 @@ def main():
     # Process email body
     in_headers = True
     found_body_start = False
+    collecting_short_desc = False
+    short_desc_lines = []
     
     for line in mail_data:
         line = line.rstrip('\n\r')
@@ -201,14 +203,24 @@ def main():
         # After headers, look for the advisory content
         if found_body_start:
             # Look for the advisory line (first non-empty line that starts with MGA)
-            if line.strip() and (re.match(r'^MGASA-', line) or re.match(r'^MGAA-', line)):
-                if not short_desc:
-                    short_desc = line.strip()
+            if line.strip() and inadvis is False:
+                collecting_short_desc = True
                 inadvis = True
+            
+            # If we're collecting short description and haven't hit "Publication date:" yet
+            if collecting_short_desc and not line.startswith('Publication date:'):
+                if line.strip():  # Only add non-empty lines
+                    short_desc_lines.append(line.strip())
+            elif line.startswith('Publication date:'):
+                # Stop collecting short description
+                collecting_short_desc = False
             
             # Collect full advisory text once we've found the start
             if inadvis:
                 advisory += line + "\n"
+    
+    # Join short description lines
+    short_desc = ' '.join(short_desc_lines)
     
     # Clean up short description
     short_desc = short_desc.strip()

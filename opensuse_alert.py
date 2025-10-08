@@ -458,6 +458,11 @@ def main():
     subject = re.sub(r' +', ' ', subject)
     subject = re.sub(r'important: (.*):.*', r'important: \1', subject)
     subject = re.sub(r'critical: (.*):.*', r'critical: \1', subject)
+    subject = re.sub(r'moderate: (.*):.*', r'critical: \1', subject)
+    subject = re.sub(r'moderate', '', subject, flags=re.IGNORECASE)
+    subject = re.sub(r'important', '', subject, flags=re.IGNORECASE)
+    subject = re.sub(r'security', '', subject, flags=re.IGNORECASE)
+    subject = re.sub(r'update', '', subject, flags=re.IGNORECASE)
     subject = subject.strip()
     
     # Extract introtext using the new function

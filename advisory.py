@@ -222,11 +222,16 @@ Please log into linuxsecurity.com, check the advisory and publish.
         except Exception as e:
             print(f"Error sending copy email: {e}")
 
-    def send_failed(self, title, os_name):
+    def send_failed(self, title, os_name, error_reason=None):
         """Send failure notification email"""
         try:
             cmd = ['/usr/sbin/sendmail', '-odb', '-t']
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, text=True)
+            
+            # Build error details section
+            error_details = ""
+            if error_reason:
+                error_details = f"\nError/Reason:\n{error_reason}\n"
             
             email_content = f"""X-Script-Name: <gambit:~alerts/scripts/advisory.py>
 From: alerts@guardiandigital.com
@@ -236,7 +241,7 @@ Subject: {os_name} Advisory insert failed
 The following advisory failed to be inserted.
 
 subject: {title}
-
+{error_details}
 -- Automatic Advisory Inserter"""
             
             proc.communicate(input=email_content)
@@ -257,9 +262,13 @@ subject: {title}
             print(f"Error writing to log file: {e}")
 
         if not full_text_init:
-            self.send_failed(title_init, os_name_init)
-            with open(db_file, 'a') as f:
-                f.write(f"Fulltext {title_init} null\n")
+            error_msg = "Advisory fulltext is empty or null"
+            self.send_failed(title_init, os_name_init, error_msg)
+            try:
+                with open(db_file, 'a') as f:
+                    f.write(f"Fulltext {title_init} null\n")
+            except Exception as e:
+                print(f"Error writing to log file: {e}")
             raise ValueError("fulltext null")
 
         databases = ["lsv7", "lsv7j5beta"]
@@ -274,9 +283,13 @@ subject: {title}
 
             connection = self.db_connect(dbname)
             if not connection:
-                self.send_failed(title, os_name)
-                with open(db_file, 'a') as f:
-                    f.write(f"Failed to connect to MySQL database {title_init} null\n")
+                error_msg = f"Failed to connect to MySQL database: {dbname}"
+                self.send_failed(title, os_name, error_msg)
+                try:
+                    with open(db_file, 'a') as f:
+                        f.write(f"Failed to connect to MySQL database {title_init} null\n")
+                except Exception as e:
+                    print(f"Error writing to log file: {e}")
                 raise Exception("failed to connect to MySQL database")
 
             cursor = connection.cursor()
@@ -330,7 +343,7 @@ subject: {title}
                 print(already_exists)
                 with open(db_file, 'a') as f:
                     f.write(f"END {datestring} title already exists ----------------------------------------------------------------------\n")
-                self.send_failed(already_exists, os_name)
+                self.send_failed(already_exists, os_name, already_exists)
                 cursor.close()
                 self.db_disconnect(connection)
                 return

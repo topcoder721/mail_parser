@@ -444,8 +444,9 @@ def main():
         vendor = "opensuse"
     else:
         # Send failure notification and exit
+        error_msg = "Subject does not match any known OpenSUSE security advisory pattern"
         advisory_handler = Advisory()
-        advisory_handler.send_failed(subject, "opensuse")
+        advisory_handler.send_failed(subject, "opensuse", error_msg)
         print("send failed due to subject or vendor mismatch")
         sys.exit(0)
     
@@ -517,9 +518,10 @@ def main():
         advisory_handler.insert_advisory(subject, short_desc, advisory, vendor, adv_date)
         print(f"Successfully inserted: {subject}")
     except Exception as e:
+        error_msg = f"Database insertion error: {str(e)}"
         print(f"Error inserting advisory: {e}")
         advisory_handler = Advisory()
-        advisory_handler.send_failed(subject, vendor)
+        advisory_handler.send_failed(subject, vendor, error_msg)
         sys.exit(1)
 
 

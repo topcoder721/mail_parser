@@ -5,11 +5,11 @@ import email
 from email.mime.text import MIMEText
 from advisory import Advisory
 
-def send_failed(subject, file_type):
+def send_failed(subject, file_type, error_reason=None):
     """Send failure notification"""
     try:
         advisory = Advisory()
-        advisory.send_failed(subject, file_type)
+        advisory.send_failed(subject, file_type, error_reason)
     except Exception as e:
         print(f"Error sending failure notification: {e}")
 
@@ -19,9 +19,10 @@ def insert_advisory(title, short_desc, advisory_text, os_name, adv_date):
         advisory = Advisory()
         advisory.insert_advisory(title, short_desc, advisory_text, os_name, adv_date)
     except Exception as e:
+        error_msg = f"Database insertion error: {str(e)}"
         print(f"Error inserting advisory: {e}")
         # Still send failure notification even if database insert fails
-        send_failed(f"Database insert failed for: {title}", os_name)
+        send_failed(f"Database insert failed for: {title}", os_name, error_msg)
 
 def main():
     # Check for help
@@ -180,8 +181,9 @@ def main():
     
     # If subject parsing failed, send failure notification and exit
     if not insub:
+        error_msg = f"Failed to parse subject - no matching pattern found"
         print(f"Failed to parse subject: {subject}")
-        send_failed(subject, file_type)
+        send_failed(subject, file_type, error_msg)
         sys.exit(0)
     
     # Process email body
@@ -231,8 +233,9 @@ def main():
         short_desc = "Security update"
     
     if not advisory.strip():
+        error_msg = "No advisory content found in email body"
         print("Warning: No advisory content found")
-        send_failed(f"No advisory content: {subject}", file_type)
+        send_failed(f"No advisory content: {subject}", file_type, error_msg)
         sys.exit(1)
     
     print(f"date: |{adv_date}|")

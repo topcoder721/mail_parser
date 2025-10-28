@@ -94,8 +94,10 @@ def main():
             break
     
     if not matched:
+        error_msg = "Failed to parse subject - no matching DSA pattern found"
         print(f"Failed to parse subject: {subject}")
-        send_failed(subject, file_type)
+        advisory_handler = Advisory()
+        advisory_handler.send_failed(subject, file_type, error_msg)
         sys.exit(0)
     
     # Extract email body - handle different content types
@@ -190,8 +192,10 @@ def main():
     
     # Check if we found the package section
     if pkgstart == 0:
+        error_msg = "Failed to find Package section in email body"
         print("Failed to find Package section")
-        send_failed(subject, file_type)
+        advisory_handler = Advisory()
+        advisory_handler.send_failed(subject, file_type, error_msg)
         sys.exit(0)
     
     # Clean up short description and subject
@@ -210,8 +214,10 @@ def main():
         short_desc = "Security update"
     
     if not advisory.strip():
+        error_msg = "No advisory content found in email body"
         print("Warning: No advisory content found")
-        send_failed(f"No advisory content: {subject}", file_type)
+        advisory_handler = Advisory()
+        advisory_handler.send_failed(f"No advisory content: {subject}", file_type, error_msg)
         sys.exit(1)
     
     print(f"subject: |{subject}|")
@@ -241,9 +247,10 @@ def main():
         advisory_handler.insert_advisory(subject, short_desc, advisory, "debian", adv_date)
         print(f"Successfully inserted: {subject}")
     except Exception as e:
+        error_msg = f"Database insertion error: {str(e)}"
         print(f"Error inserting advisory: {e}")
         advisory_handler = Advisory()
-        advisory_handler.send_failed(subject, "debian")
+        advisory_handler.send_failed(subject, "debian", error_msg)
         sys.exit(1)
 
 if __name__ == "__main__":

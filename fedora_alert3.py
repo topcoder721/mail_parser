@@ -142,7 +142,7 @@ def main():
     else:
         # Send failure notification and exit
         advisory_handler = Advisory()
-        advisory_handler.send_failed(subject, "fedora")
+        advisory_handler.send_failed(subject, "fedora", "fedora version mismatched")
         sys.exit(0)
     
     # Truncate short description if too long
@@ -175,7 +175,7 @@ def main():
     except Exception as e:
         print(f"Error inserting advisory: {e}")
         advisory_handler = Advisory()
-        advisory_handler.send_failed(subject, "fedora")
+        advisory_handler.send_failed(subject, "fedora", f"Error inserting advisory: {e}")
         sys.exit(1)
 
 

@@ -442,6 +442,14 @@ def main():
         match = re.search(r'openSUSE-SU-4(\d+)-(\d+): (\w+): Security update for (.*)', subject)
         subject = f"openSUSE: 4{match.group(1)}-{match.group(2)} {match.group(3)}: {match.group(4)}"
         vendor = "opensuse"
+    elif re.search(r'openSUSE-SU-(\d+)-(\d+)-(\d+): (\w+): Security update for (.*)', subject):
+        match = re.search(r'openSUSE-SU-(\d+)-(\d+)-(\d+): (\w+): Security update for (.*)', subject)
+        subject = f"openSUSE: {match.group(1)}-{match.group(2)}-{match.group(3)} {match.group(4)}: {match.group(5)}"
+        vendor = "opensuse"
+    elif re.search(r'openSUSE-SU-(\d+)-(\d+)-(\d+): (\w+): Recommended update (?:of|for) (.*)', subject):
+        match = re.search(r'openSUSE-SU-(\d+)-(\d+)-(\d+): (\w+): Recommended update (?:of|for) (.*)', subject)
+        subject = f"openSUSE: {match.group(1)}-{match.group(2)}-{match.group(3)} {match.group(4)}: {match.group(5)}"
+        vendor = "opensuse"
     else:
         # Send failure notification and exit
         error_msg = "Subject does not match any known OpenSUSE security advisory pattern"

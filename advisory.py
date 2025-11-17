@@ -83,51 +83,68 @@ class Advisory:
     def generate_random_id(self, length=12):
         """Generate random ID for title alias"""
         import time
-        return str(int(time.time() * 1000))
+        return str(int(time.time()))
 
     def clean_title_alias(self, title):
         """Generate concise alias using AI to select most descriptive words"""
-        from GPT.gpt_module import GPT
-        from GPT.gpt_constants import LS_RESPONSE_SINGLE_STRING_FORMAT
         import json
+        from openai import OpenAI
+        from dotenv import load_dotenv
+        import os
+        
+        load_dotenv()
         
         # Use AI to extract the most descriptive core words
         system_instruction = """You are an expert at creating concise, SEO-friendly URL slugs for security advisories.
-Your task is to extract the 3-5 most important and descriptive words from a security advisory title.
+Extract the 3-5 most important and descriptive words from a security advisory title.
 
 Rules:
 1. Focus on the software/package name and the key vulnerability or issue
 2. Exclude generic words like "security", "advisory", "update", "fix", "bug"
 3. Keep version numbers only if they're critical to understanding
-4. Prefer specific technical terms over generic ones
-5. Output should be 3-5 words maximum, lowercase, separated by hyphens
-6. Total length should be under 40 characters if possible
-7. Remove any special characters, keep only alphanumeric and hyphens
+4. Output should be 3-5 words maximum, lowercase, separated by hyphens
+5. Total length should be under 40 characters. This is must-have option.
 
 Examples:
 - "DSA-6059-1 thunderbird - security update" -> "thunderbird-dsa-6059-1"
 - "FEDORA-2024-123 kernel security and bug fix update" -> "kernel-fedora-2024-123"
-- "openSUSE-SU-2024:0123-1: Security update for chromium" -> "chromium-opensuse-su-2024-0123"
 """
         
-        user_prompt = f"Extract the most descriptive core words from this security advisory title: {title}"
-        
         try:
-            gpt = GPT(quiet=True)
-            response = gpt.generate_structured_response_by_single_prompt(
-                prompt=user_prompt,
-                system_instruction=system_instruction,
-                response_format=LS_RESPONSE_SINGLE_STRING_FORMAT
+            client = OpenAI(
+                organization=os.getenv("ORGANIZATION"),
+                project=os.getenv("PROJECT_ID"),
             )
             
-            result = json.loads(response)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": f"Extract the most descriptive core words: {title}"}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "alias_format",
+                        "schema": {
+                            "type": "object",
+                            "properties": {"string": {"type": "string"}},
+                            "required": ["string"],
+                            "additionalProperties": False
+                        },
+                        "strict": True
+                    }
+                }
+            )
+            
+            result = json.loads(response.choices[0].message.content)
             alias = result.get("string", "").lower().strip()
             
             # Clean up the AI-generated alias
-            alias = re.sub(r'[^\x00-\x7F]', '', alias)  # Remove non-ASCII
-            alias = re.sub(r'[^a-z0-9\-]', '-', alias)  # Keep only alphanumeric and hyphens
-            alias = re.sub(r'-+', '-', alias)  # Remove multiple hyphens
-            alias = re.sub(r'^-|-$', '', alias)  # Remove leading/trailing hyphens
+            alias = re.sub(r'[^\x00-\x7F]', '', alias)
+            alias = re.sub(r'[^a-z0-9\-]', '-', alias)
+            alias = re.sub(r'-+', '-', alias)
+            alias = re.sub(r'^-|-$', '', alias)
             
         except Exception as e:
             # Fallback to basic cleaning if AI fails

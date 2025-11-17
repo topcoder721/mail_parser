@@ -389,6 +389,34 @@ subject: {title}
                 self.db_disconnect(connection)
                 return
 
+            # Check if alias already exists and regenerate if needed
+            import time
+            max_attempts = 3
+            attempt = 0
+            
+            while attempt < max_attempts:
+                check_alias_sql = "SELECT id, alias FROM xu5gc_content WHERE alias = %s AND state = 1"
+                cursor.execute(check_alias_sql, (title_alias,))
+                existing_alias = cursor.fetchone()
+                
+                if not existing_alias:
+                    break
+                
+                attempt += 1
+                print(f"Alias already exists: {title_alias}, regenerating (attempt {attempt}/{max_attempts})...")
+                time.sleep(1)
+                title_alias = self.clean_title_alias(title)
+            
+            if existing_alias:
+                already_exists = f"{os_name} alias still exists after {max_attempts} attempts: {title_alias}"
+                print(already_exists)
+                with open(db_file, 'a') as f:
+                    f.write(f"END {datestring} alias already exists after retries ----------------------------------------------------------------------\n")
+                self.send_failed(already_exists, os_name, already_exists)
+                cursor.close()
+                self.db_disconnect(connection)
+                return
+
             # Set access level based on database
             access = 1 if "lsv7j5beta" in dbname else 8
 

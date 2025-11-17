@@ -86,37 +86,61 @@ class Advisory:
         return str(int(time.time() * 1000))
 
     def clean_title_alias(self, title):
-        """Clean title for use as alias"""
-        alias = title.lower()
+        """Generate concise alias using AI to select most descriptive words"""
+        from GPT.gpt_module import GPT
+        from GPT.gpt_constants import LS_RESPONSE_SINGLE_STRING_FORMAT
+        import json
         
-        # Apply various cleaning rules
-        alias = re.sub(r'security and bug fix (update)?', '', alias)
-        alias = re.sub(r'-security-advisory-update-', '-', alias)
-        alias = re.sub(r'[\[\]]', '', alias)
-        alias = re.sub(r'x86_64', 'x86-64', alias)
-        alias = re.sub(r'<93>', '"', alias)
-        alias = re.sub(r'<94>', '"', alias)
-        alias = re.sub(r'<92>', "'", alias)
-        alias = re.sub(r'<97>', '--', alias)
-        alias = re.sub(r'"', '', alias)
-        alias = re.sub(r'[^\x20-\x7E\r\n]', '', alias)  # Remove non-printable chars
-        alias = alias.rstrip()
-        alias = re.sub(r',$', '', alias)
-        alias = re.sub(r'-$', '', alias)
-        alias = re.sub(r'\.+', '-', alias)
-        alias = re.sub(r':+', '-', alias)
-        alias = re.sub(r',+', '-', alias)
-        alias = re.sub(r"'", '', alias)
-        alias = re.sub(r'/', '-', alias)
-        alias = re.sub(r' +', '-', alias)
-        alias = re.sub(r'_', '-', alias)
-        alias = re.sub(r'[^\x00-\x7F]', '', alias)  # Remove non-ASCII
-        alias = re.sub(r'-+', '-', alias)
-        alias = re.sub(r'[ :!@#$%^&*()+=./]', '-', alias)
-        alias = re.sub(r'--', '-', alias)
-        alias = re.sub(r'-$', '', alias)
+        # Use AI to extract the most descriptive core words
+        system_instruction = """You are an expert at creating concise, SEO-friendly URL slugs for security advisories.
+Your task is to extract the 3-5 most important and descriptive words from a security advisory title.
+
+Rules:
+1. Focus on the software/package name and the key vulnerability or issue
+2. Exclude generic words like "security", "advisory", "update", "fix", "bug"
+3. Keep version numbers only if they're critical to understanding
+4. Prefer specific technical terms over generic ones
+5. Output should be 3-5 words maximum, lowercase, separated by hyphens
+6. Total length should be under 40 characters if possible
+7. Remove any special characters, keep only alphanumeric and hyphens
+
+Examples:
+- "DSA-6059-1 thunderbird - security update" -> "thunderbird-dsa-6059-1"
+- "FEDORA-2024-123 kernel security and bug fix update" -> "kernel-fedora-2024-123"
+- "openSUSE-SU-2024:0123-1: Security update for chromium" -> "chromium-opensuse-su-2024-0123"
+"""
         
-        # Add random ID
+        user_prompt = f"Extract the most descriptive core words from this security advisory title: {title}"
+        
+        try:
+            gpt = GPT(quiet=True)
+            response = gpt.generate_structured_response_by_single_prompt(
+                prompt=user_prompt,
+                system_instruction=system_instruction,
+                response_format=LS_RESPONSE_SINGLE_STRING_FORMAT
+            )
+            
+            result = json.loads(response)
+            alias = result.get("string", "").lower().strip()
+            
+            # Clean up the AI-generated alias
+            alias = re.sub(r'[^\x00-\x7F]', '', alias)  # Remove non-ASCII
+            alias = re.sub(r'[^a-z0-9\-]', '-', alias)  # Keep only alphanumeric and hyphens
+            alias = re.sub(r'-+', '-', alias)  # Remove multiple hyphens
+            alias = re.sub(r'^-|-$', '', alias)  # Remove leading/trailing hyphens
+            
+        except Exception as e:
+            # Fallback to basic cleaning if AI fails
+            print(f"AI alias generation failed: {e}, using fallback")
+            alias = title.lower()
+            alias = re.sub(r'security and bug fix (update)?', '', alias)
+            alias = re.sub(r'[\[\]]', '', alias)
+            alias = re.sub(r'[^\x00-\x7F]', '', alias)
+            alias = re.sub(r'[^a-z0-9\-]', '-', alias)
+            alias = re.sub(r'-+', '-', alias)
+            alias = re.sub(r'^-|-$', '', alias)
+        
+        # Add random ID for uniqueness
         random_id = self.generate_random_id()
         alias = f"{alias}-{random_id.lower()}"
         

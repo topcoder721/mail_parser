@@ -11,19 +11,20 @@ import time
 import subprocess
 import sys
 from email.utils import parsedate_to_datetime
+from dotenv import load_dotenv
+import os
 
 
 class Advisory:
     def __init__(self):
+        load_dotenv()
+        
         self.db_config = {
-            # 'host': 'havoc.guardiandigital.com',
-            'host': 'localhost',
-            # 'user': 'lsjoomla',
-            'user': 'root',
-            # 'password': '64V%^pEo05aT',
-            'password': 'gscnexus',
-            'port':3307,
-            'charset': 'utf8mb4',
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'user': os.getenv('DB_USER', 'root'),
+            'password': os.getenv('DB_PASSWORD'),
+            'port': int(os.getenv('DB_PORT', 3307)),
+            'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
             'use_unicode': True,
             'autocommit': True
         }

@@ -82,8 +82,8 @@ class Advisory:
 
     def generate_random_id(self, length=12):
         """Generate random ID for title alias"""
-        chars = string.ascii_letters + string.digits
-        return ''.join(random.choice(chars) for _ in range(length))
+        import time
+        return str(int(time.time() * 1000))
 
     def clean_title_alias(self, title):
         """Clean title for use as alias"""
